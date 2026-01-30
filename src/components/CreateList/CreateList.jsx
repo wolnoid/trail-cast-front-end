@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ListsContext } from '../../contexts/ListsContext.jsx';
 import * as listService from '../../services/listService.js';
@@ -14,17 +14,27 @@ const pickRandomSeed = () =>
 
 const EPS = 1e-6;
 const sameCoords = (aLon, aLat, bLon, bLat) =>
-  Math.abs(Number(aLon) - Number(bLon)) < EPS && Math.abs(Number(aLat) - Number(bLat)) < EPS;
+  Math.abs(Number(aLon) - Number(bLon)) < EPS &&
+  Math.abs(Number(aLat) - Number(bLat)) < EPS;
 
 const CreateList = ({ mode }) => {
-  const { state } = useLocation();
+  const location = useLocation();
+  const { state } = location;
   const navigate = useNavigate();
   const { listId } = useParams();
 
-  const { createList: createListCtx, updateList: updateListCtx } = useContext(ListsContext);
+  const { createList: createListCtx, updateList: updateListCtx } =
+    useContext(ListsContext);
 
   const initialLocation = state?.initialLocation;
   const seedLocations = state?.seedLocations;
+
+  // Run create-mode initialization only once per navigation.
+  const didInitCreateRef = useRef(false);
+  useEffect(() => {
+    // React Router sets a new key on navigation.
+    didInitCreateRef.current = false;
+  }, [location.key]);
 
   const { locations, setLocations, addLocation } = useWeatherList({
     initialLocation,
@@ -60,7 +70,10 @@ const CreateList = ({ mode }) => {
           const locDoc = entry.location; // populated Location doc
           if (!locDoc) continue;
 
-          const forecast = await forecastService.getWeather(locDoc.longitude, locDoc.latitude);
+          const forecast = await forecastService.getWeather(
+            locDoc.longitude,
+            locDoc.latitude
+          );
 
           built.push({
             _id: locDoc._id,
@@ -81,57 +94,55 @@ const CreateList = ({ mode }) => {
     })();
   }, [mode, listId, setLocations]);
 
-
-  // ====== CREATE MODE: seed from Landing "visible locations" (if provided) ======
+  // ====== CREATE MODE: initialize once (landing seeds OR geolocation/random seed) ======
+  //
+  // Bug fix: previously, these effects depended on `locations.length`, so deleting items (especially deleting all)
+  // re-triggered the seed logic and "re-added" previously removed locations.
   useEffect(() => {
     if (mode !== 'create') return;
+    if (didInitCreateRef.current) return;
+    didInitCreateRef.current = true;
 
-    // Keep existing behavior when routed here from Forecast dropdown
+    // If we were routed here from Forecast dropdown, keep that behavior (hook handles it).
     if (initialLocation?.name) return;
 
-    if (!Array.isArray(seedLocations) || seedLocations.length === 0) return;
-
-    // If the user already started building a list, don't overwrite it
+    // If something already exists (for any reason), don't override.
     if (locations.length) return;
 
-    const normalized = seedLocations
-      .filter((l) => l && (l.lon ?? l.longitude) != null && (l.lat ?? l.latitude) != null)
-      .map((l) => ({
-        _id: l._id, // keep if present
-        name: l.name,
-        lon: l.lon ?? l.longitude,
-        lat: l.lat ?? l.latitude,
-        forecast: l.forecast, // optional
-        source: l.source ?? 'landing',
-      }));
+    // 1) Seed from Landing "visible locations" (if provided)
+    if (Array.isArray(seedLocations) && seedLocations.length) {
+      const normalized = seedLocations
+        .filter(
+          (l) =>
+            l && (l.lon ?? l.longitude) != null && (l.lat ?? l.latitude) != null
+        )
+        .map((l) => ({
+          _id: l._id,
+          name: l.name,
+          lon: l.lon ?? l.longitude,
+          lat: l.lat ?? l.latitude,
+          forecast: l.forecast,
+          source: l.source ?? 'landing',
+        }));
 
-    if (!normalized.length) return;
+      if (normalized.length) {
+        setError('');
+        setLocations(normalized);
+        return;
+      }
+    }
 
-    setError('');
-    setLocations(normalized);
-  }, [mode, initialLocation, seedLocations, locations.length, setLocations]);
-
-  // ====== CREATE MODE: if no initialLocation was passed, default to "Your Location",
-  // otherwise fall back to a random seeded city (single initial item) ======
-  useEffect(() => {
-    if (mode !== 'create') return;
-
-    // If we were routed here from Forecast dropdown, keep that behavior.
-    if (initialLocation?.name) return;
-
-    // If user already has something in the list, don't mess with it.
-    if (Array.isArray(seedLocations) && seedLocations.length) return;
-
+    // 2) Otherwise, try user geolocation; if that fails, fall back to a random seed city.
     let cancelled = false;
 
     const addRandomSeed = async () => {
       const seed = pickRandomSeed();
       if (!seed) return;
-
       try {
         await addLocation(seed, { insertAt: 'top' });
       } catch (e) {
-        if (!cancelled) setError('Could not load an initial location. Please search for a city.');
+        if (!cancelled)
+          setError('Could not load an initial location. Please search for a city.');
       }
     };
 
@@ -164,7 +175,7 @@ const CreateList = ({ mode }) => {
     return () => {
       cancelled = true;
     };
-  }, [mode, initialLocation, seedLocations, locations.length, addLocation]);
+  }, [mode, initialLocation, seedLocations, locations.length, addLocation, setLocations]);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -265,7 +276,14 @@ const CreateList = ({ mode }) => {
 
       // 5) go to ShowList
       navigate(`/lists/${listId}`, {
-        state: { list: { ...serverNow, name: form.name.trim(), description: form.description.trim() }, locations },
+        state: {
+          list: {
+            ...serverNow,
+            name: form.name.trim(),
+            description: form.description.trim(),
+          },
+          locations,
+        },
       });
     } catch (err) {
       setError(err.message || 'Failed to save list.');
@@ -295,7 +313,9 @@ const CreateList = ({ mode }) => {
           <div className={styles.locationSearchWrap}>
             <LocationSearch
               getWeather={addLocation}
-              autoLoad={state?.autoLoadUserLocation === true}
+              autoLoad={
+                state?.autoLoadUserLocation === true || state?.seedUserLocation === true
+              }
             />
           </div>
         </div>
@@ -331,7 +351,7 @@ const CreateList = ({ mode }) => {
               {error ? <p className={styles.error}>{error}</p> : null}
 
               <button
-              className={styles.saveBtn}
+                className={styles.saveBtn}
                 type="button"
                 onClick={handleSave}
                 disabled={saving}

@@ -5,7 +5,7 @@ import { ListsContext } from '../../contexts/ListsContext.jsx';
 
 const MAX_WINDOW_DAYS = 5;
 
-// --- Trail Cast brand gradient helpers (from NavBar.module.css) ---
+// --- Trail Cast brand gradient helpers (from NavBar) ---
 const lerp = (a, b, t) => a + (b - a) * t;
 
 const hexToRgb = (hex) => {

@@ -1,7 +1,5 @@
-/* src/components/Forecast/Forecast.module.css */
-
 .table {
-  /* controls (UNCHANGED from your original) */
+  /* controls */
   --left-col-w: 180px;  /* left sticky column width */
   --day-col-w: 240px;   /* each day column width */
 
@@ -25,7 +23,7 @@
   position: relative;
   isolation: isolate;
 
-  /* NEW: clean dark background + subtle border/shadow (does not affect sizing) */
+  /* clean dark background + subtle border/shadow */
   background: #1f2937; /* dark gray */
   border: none;
   box-shadow: 0 0 10px 15px rgba(255, 255, 255, 0.10);

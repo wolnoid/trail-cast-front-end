@@ -1,4 +1,3 @@
-// src/components/LandingSidebar/LandingSidebar.jsx
 import LocationSearch from '../LocationSearch/LocationSearch.jsx';
 import ListSearch from '../ListSearch/ListSearch.jsx';
 import styles from './Sidebar.module.css';

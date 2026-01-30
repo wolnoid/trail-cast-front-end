@@ -1,4 +1,3 @@
-// ForecastLocationRow.jsx
 import { Link, useNavigate } from 'react-router-dom';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styles from './ForecastLocationRow.module.css';

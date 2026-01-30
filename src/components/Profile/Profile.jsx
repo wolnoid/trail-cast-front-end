@@ -1,4 +1,3 @@
-// src/components/Profile/Profile.jsx
 import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListsContext } from '../../contexts/ListsContext.jsx';
@@ -116,8 +115,6 @@ const Profile = () => {
             })}
           </ul>
         )}
-
-        {/* <h3>Saved lists</h3> */}
       </section>
     </main>
   );

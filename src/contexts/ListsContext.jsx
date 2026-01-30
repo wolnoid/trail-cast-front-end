@@ -1,4 +1,3 @@
-// src/contexts/ListsContext.jsx
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { UserContext } from './UserContext.jsx';
 import * as listService from '../services/listService.js';
